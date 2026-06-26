@@ -1,0 +1,49 @@
+spring:
+  datasource:
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 3
+    driver-class-name: ${DATABASE_DRIVER}
+    url: jdbc:oracle:thin:@stock_tp?TNS_ADMIN=${WALLET_PATH}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+telegram:
+  bot1:
+    username: ${TEL_BOT1_USERNAME}
+    token: ${TEL_BOT1_TOKEN}
+    status: ${TEL_BOT1_FLAG}
+  bot2:
+    username: ${TEL_BOT2_USERNAME}
+    token: ${TEL_BOT2_TOKEN}
+    status: ${TEL_BOT2_FLAG}
+kite:
+  api-key: ${KITE_KEY}
+  api-secret: ${KITE_SECRET}
+
+  application:
+    name: telegram-bot-buddy
+  jpa:
+     show-sql: false
+server:
+  servlet:
+    context-path: /telegram-bot-buddy
+  port: 7071
+jasypt:
+  encryptor:
+    algorithm: PBEWITHHMACSHA512ANDAES_256
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+    password: jsyptpassword2021
+logging:
+  level:
+    root: INFO
+    org:
+      telegram:
+        telegrambots:
+          updatesreceivers:
+            DefaultBotSession: OFF
+
+job:
+  kite: ${KITE}
+  nifty: ${NIFTY}
+KITE_ID: ${KITE_ID}
+
