@@ -3,6 +3,7 @@ package com.telegram.bot.controller;
 import com.telegram.bot.dto.SOSGameDTO;
 import com.telegram.bot.service.SOSGameService;
 import com.telegram.bot.service.TelegramInitDataValidator;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "*", allowedHeaders = "*")
+@Log4j2
 public class SOSGameController {
 
     @Autowired
@@ -34,11 +36,12 @@ public class SOSGameController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody SOSGameDTO.SaveScoreRequest scoreData) {
         try {
+            log.info("Inside Saving game score-------------:=>");
             Long userId = extractUserIdFromAuth(authHeader);
             SOSGameDTO.GameScoreResponse response = sosGameService.saveGameScore(userId, scoreData);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            e.printStackTrace();
+           log.error("Error while saving the game soure ",e);
             return ResponseEntity.status(500).body(Map.of("error", "Failed to save score: " + e.getMessage()));
         }
     }
@@ -51,6 +54,7 @@ public class SOSGameController {
     public ResponseEntity<?> getGameProgress(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            log.info("Inside Game Progress -------------:=>");
             Long userId = extractUserIdFromAuth(authHeader);
             SOSGameDTO.ProgressResponse progress = sosGameService.getPlayerProgress(userId);
             return ResponseEntity.ok(progress);
@@ -69,6 +73,7 @@ public class SOSGameController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestParam(defaultValue = "10") int limit) {
         try {
+            log.info("Inside leaderboard-------------:=>");
             List<SOSGameDTO.LeaderboardEntry> leaderboard = sosGameService.getLeaderboard(limit);
             return ResponseEntity.ok(Map.of("leaderboard", leaderboard));
         } catch (Exception e) {
@@ -85,6 +90,8 @@ public class SOSGameController {
     public ResponseEntity<?> getInventory(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            log.info("Inside Inventory-------------:=>");
+
             Long userId = extractUserIdFromAuth(authHeader);
             SOSGameDTO.InventoryResponse inventory = sosGameService.getPlayerInventory(userId);
             return ResponseEntity.ok(inventory);
@@ -103,6 +110,8 @@ public class SOSGameController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody SOSGameDTO.UpdateInventoryRequest inventoryData) {
         try {
+            log.info("Inside Inventory update-------------:=>");
+
             Long userId = extractUserIdFromAuth(authHeader);
             SOSGameDTO.InventoryResponse inventory = sosGameService.updatePlayerInventory(userId, inventoryData);
             return ResponseEntity.ok(inventory);
@@ -118,6 +127,7 @@ public class SOSGameController {
     @GetMapping("/health")
     public ResponseEntity<?> health() {
         try {
+            log.info("Inside health -------------:=>");
             return ResponseEntity.ok(Map.of(
                 "status", "OK",
                 "service", "SOS Game API",
@@ -136,6 +146,7 @@ public class SOSGameController {
      * Format: Bearer <initData> where initData contains user ID
      */
     private Long extractUserIdFromAuth(String authHeader) throws Exception {
+        log.info("Extract user ID -------------:=>");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new Exception("Invalid Authorization header");
         }
