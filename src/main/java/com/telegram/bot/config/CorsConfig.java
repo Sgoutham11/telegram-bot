@@ -19,7 +19,8 @@ public class CorsConfig implements WebMvcConfigurer {
                         "http://localhost:5174",
                         "http://localhost:3000",
                         "https://localhost:5173",
-                        "https://localhost:5174"
+                        "https://localhost:5174",
+                        "https://playbuddy.zapto.org"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
