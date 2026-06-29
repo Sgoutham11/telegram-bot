@@ -13,26 +13,27 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
-                .allowedOrigins(
-                        "http://localhost:5173",
-                        "http://localhost:5174",
-                        "http://localhost:3000",
-                        "https://localhost:5173",
-                        "https://localhost:5174",
-                        "https://playbuddy.zapto.org"
-                )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                .allowCredentials(true)
-                .maxAge(3600);
+//        registry.addMapping("/**")
+//                .allowedOrigins(
+//                        "http://localhost:5173",
+//                        "http://localhost:5174",
+//                        "http://localhost:3000",
+//                        "https://localhost:5173",
+//                        "https://localhost:5174",
+//                        "https://playbuddy.zapto.org",
+//                        "http://localhost:3001"
+//                )
+//                .allowedMethods("*")
+//                .allowedHeaders("*")
+//                .allowCredentials(true)
+//                .maxAge(3600);
 
         // Also allow from your production Telegram Mini App domain when deployed
-        // registry.addMapping("/api/**")
-        //         .allowedOrigins("https://your-telegram-app-domain.com")
-        //         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-        //         .allowedHeaders("*")
-        //         .allowCredentials(true)
-        //         .maxAge(3600);
+        registry.addMapping("/api/**")
+                 .allowedOrigins("https://playbuddy.zapto.org")
+                 .allowedMethods("*")
+                 .allowedHeaders("*")
+                 .allowCredentials(true)
+                 .maxAge(3600);
     }
 }

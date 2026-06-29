@@ -5,6 +5,7 @@ import com.telegram.bot.service.SOSGameService;
 import com.telegram.bot.service.TelegramInitDataValidator;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +18,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
+//@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Log4j2
 public class SOSGameController {
 
@@ -26,6 +27,9 @@ public class SOSGameController {
 
     @Autowired
     private TelegramInitDataValidator initDataValidator;
+
+    @Value("${spring.profiles.active:default}")
+    private String activeProfile;
 
     /**
      * Save game score after a game ends
@@ -146,6 +150,12 @@ public class SOSGameController {
      * Format: Bearer <initData> where initData contains user ID
      */
     private Long extractUserIdFromAuth(String authHeader) throws Exception {
+
+        // Local development: generate a temporary user id
+        if ("local".equalsIgnoreCase(activeProfile)) {
+            return Math.abs(java.util.UUID.randomUUID().getMostSignificantBits());
+        }
+
         log.info("Extract user ID -------------:=>");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new Exception("Invalid Authorization header");
