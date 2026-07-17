@@ -22,6 +22,7 @@ public class SOSGameDTO {
     @AllArgsConstructor
     public static class SaveScoreRequest {
         private Long userId;
+        private String gameCode;
         private String playerName;
         private Integer score;
         private Integer opponentScore;

@@ -1,21 +1,20 @@
 package com.telegram.bot.service;
 
 import com.telegram.bot.dto.SOSGameDTO;
-import com.telegram.bot.entity.Player;
+import com.telegram.bot.entity.GameScore;
 import com.telegram.bot.entity.PlayerProfile;
-import com.telegram.bot.entity.SOSGameScore;
+import com.telegram.bot.repository.GameScoreRepository;
 import com.telegram.bot.repository.PlayerProfileRepository;
 import com.telegram.bot.repository.PlayerRepository;
-import com.telegram.bot.repository.SOSGameScoreRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -31,10 +30,11 @@ public class SOSGameService {
     private PlayerProfileRepository playerProfileRepository;
 
     @Autowired
-    private SOSGameScoreRepository sosGameScoreRepository;
+    private GameScoreRepository gameScoreRepository;
 
     @Autowired
     private PlayerRepository playerRepository;
+
 
     /**
      * Save game score to database
@@ -55,7 +55,12 @@ public class SOSGameService {
                     });
 
             // Create game score record
-            SOSGameScore gameScore = SOSGameScore.builder()
+            String gameCode = scoreData.getGameCode() != null && !scoreData.getGameCode().isBlank()
+                    ? scoreData.getGameCode().toUpperCase()
+                    : "SOS";
+
+            GameScore gameScore = GameScore.builder()
+                    .gameCode(gameCode)
                     .chatId(userId)
                     .playerName(playerProfile.getPlayerName())
                     .score(scoreData.getScore())
@@ -66,12 +71,12 @@ public class SOSGameService {
                     .createdAt(LocalDateTime.now())
                     .build();
 
-            SOSGameScore savedScore = sosGameScoreRepository.save(gameScore);
+            GameScore savedScore = gameScoreRepository.save(gameScore);
             log.info("Game score saved successfully. ID: {}", savedScore.getId());
 
             // Calculate new rank
-            Long totalScoreSum = sosGameScoreRepository.getTotalScoreByUserId(userId);
-            int newRank = sosGameScoreRepository.getUserRank(userId);
+            Long totalScoreSum = gameScoreRepository.getTotalScoreByUserId(userId);
+            int newRank = gameScoreRepository.getUserRank(userId);
 
             return SOSGameDTO.GameScoreResponse.builder()
                     .success(true)
@@ -116,31 +121,31 @@ public class SOSGameService {
             }
 
             // Get game statistics
-            Integer gamesPlayed = sosGameScoreRepository.countGamesByUserId(userId);
+            Integer gamesPlayed = gameScoreRepository.countGamesByUserId(userId);
             if (gamesPlayed == null) gamesPlayed = 0;
             
-            Integer wins = sosGameScoreRepository.countWinsByUserId(userId);
+            Integer wins = gameScoreRepository.countWinsByUserId(userId);
             if (wins == null) wins = 0;
             
-            Long totalScore = sosGameScoreRepository.getTotalScoreByUserId(userId);
+            Long totalScore = gameScoreRepository.getTotalScoreByUserId(userId);
             if (totalScore == null) totalScore = 0L;
             
             Double averageScore = gamesPlayed > 0 ? totalScore.doubleValue() / gamesPlayed : 0.0;
             
             Integer currentRank = 0;
             try {
-                currentRank = sosGameScoreRepository.getUserRank(userId);
+                currentRank = gameScoreRepository.getUserRank(userId);
                 if (currentRank == null) currentRank = 0;
             } catch (Exception e) {
                 log.warn("Failed to fetch user rank: {}", e.getMessage());
                 currentRank = 0;
             }
             
-            Integer longestWinStreak = sosGameScoreRepository.getLongestWinStreakByUserId(userId);
+            Integer longestWinStreak = gameScoreRepository.getLongestWinStreakByUserId(userId);
             if (longestWinStreak == null) longestWinStreak = 0;
 
             // Get last played date
-            SOSGameScore lastGame = sosGameScoreRepository.findTopByChatIdOrderByGamePlayedAtDesc(userId);
+            GameScore lastGame = gameScoreRepository.findTopByChatIdOrderByGamePlayedAtDesc(userId);
             String lastPlayedDate = lastGame != null && lastGame.getGamePlayedAt() != null ? lastGame.getGamePlayedAt().toString() : null;
 
             return SOSGameDTO.ProgressResponse.builder()
@@ -176,7 +181,7 @@ public class SOSGameService {
             log.info("Fetching leaderboard with limit: {}", limit);
 
             // Get all unique players and their stats, sorted by total score descending
-            List<SOSGameDTO.LeaderboardEntry> leaderboard = sosGameScoreRepository.findTop(limit)
+            List<SOSGameDTO.LeaderboardEntry> leaderboard = gameScoreRepository.findTop(limit)
                     .stream()
                     .map(this::mapToLeaderboardEntry)
                     .collect(Collectors.toList());

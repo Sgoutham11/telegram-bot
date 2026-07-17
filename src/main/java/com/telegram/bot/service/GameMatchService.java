@@ -22,7 +22,7 @@ public class GameMatchService {
     private final PlayerProfileRepository playerProfileRepository;
     private final SOSMatchRepository matchRepository;
     private final SOSMatchMoveRepository matchMoveRepository;
-    private final SOSGameScoreRepository scoreRepository;
+    private final GameScoreRepository scoreRepository;
 
     public Map<String, Object> registerPlayer(Long telegramId, String displayName) {
         PlayerProfile profile = playerProfileRepository.findByChatId(telegramId)
@@ -82,7 +82,8 @@ public class GameMatchService {
                     .score(score)
                     .build();
             // Saved via cascade if configured; save score record
-            scoreRepository.save(SOSGameScore.builder()
+            scoreRepository.save(GameScore.builder()
+                    .gameCode("SOS")
                     .chatId(tgId)
                     .playerName(name)
                     .score(score)
