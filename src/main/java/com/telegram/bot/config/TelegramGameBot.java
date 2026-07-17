@@ -1,5 +1,5 @@
 package com.telegram.bot.config;
-
+/*
 import com.telegram.bot.entity.GameSession;
 import com.telegram.bot.entity.Player;
 import com.telegram.bot.repository.TelegramBotRepository;
@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -25,7 +26,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@Component
+// Legacy Telegram command/callback Bingo bot is disabled.
+// Bingo gameplay now lives in the Phaser mini app.
+// @Component
 @Slf4j
 public class TelegramGameBot extends TelegramLongPollingBot {
 
@@ -610,3 +613,4 @@ public class TelegramGameBot extends TelegramLongPollingBot {
     }
 
 }
+*/
