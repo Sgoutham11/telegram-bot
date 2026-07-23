@@ -5,22 +5,14 @@ import com.telegram.bot.entity.GameScore;
 import com.telegram.bot.entity.PlayerProfile;
 import com.telegram.bot.repository.GameScoreRepository;
 import com.telegram.bot.repository.PlayerProfileRepository;
-import com.telegram.bot.repository.PlayerRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
-/**
- * Service for SOS Game backend logic
- * Handles score tracking, player progress, and leaderboards
- */
 @Slf4j
 @Service
 @Transactional
@@ -33,17 +25,38 @@ public class SOSGameService {
     private GameScoreRepository gameScoreRepository;
 
     @Autowired
-    private PlayerRepository playerRepository;
+    private TelegramInitDataValidator initDataValidator;
 
+    @Value("${spring.profiles.active:default}")
+    private String activeProfile;
+
+
+    private Long extractUserIdFromAuth(String authHeader) throws Exception {
+
+        // Local development: generate a temporary user id
+        if ("local".equalsIgnoreCase(activeProfile)) {
+            return Math.abs(java.util.UUID.randomUUID().getMostSignificantBits());
+        }
+
+        log.info("Extract user ID -------------:=>");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new Exception("Invalid Authorization header");
+        }
+        String initData = authHeader.substring(7);
+        return initDataValidator.validateAndExtractUserId(initData)
+                .orElseThrow(() -> new Exception("Invalid Telegram initData"));
+    }
 
     /**
      * Save game score to database
      */
-    public SOSGameDTO.GameScoreResponse saveGameScore(Long userId, SOSGameDTO.SaveScoreRequest scoreData) {
-        try {
-            log.info("Saving game score for user: {}", userId);
 
-            // Get or create player profile
+    public SOSGameDTO.GameScoreResponse saveGameScore(String authHeader, SOSGameDTO.SaveScoreRequest scoreData) {
+
+        try {
+
+            Long userId = extractUserIdFromAuth(authHeader);
+            log.info("Saving game score for user: {}", userId);
             PlayerProfile playerProfile = playerProfileRepository.findByChatId(userId)
                     .orElseGet(() -> {
                         PlayerProfile newProfile = PlayerProfile.builder()
@@ -53,8 +66,6 @@ public class SOSGameService {
                                 .build();
                         return playerProfileRepository.save(newProfile);
                     });
-
-            // Create game score record
             String gameCode = scoreData.getGameCode() != null && !scoreData.getGameCode().isBlank()
                     ? scoreData.getGameCode().toUpperCase()
                     : "SOS";
@@ -95,226 +106,5 @@ public class SOSGameService {
         }
     }
 
-    /**
-     * Get player's game progress and statistics
-     */
-    public SOSGameDTO.ProgressResponse getPlayerProgress(Long userId) {
-        try {
-            log.info("Fetching progress for user: {}", userId);
 
-            // Get player profile
-            PlayerProfile playerProfile = playerProfileRepository.findByChatId(userId)
-                    .orElse(null);
-
-            if (playerProfile == null) {
-                // Return default progress if player doesn't exist yet
-                return SOSGameDTO.ProgressResponse.builder()
-                        .userId(userId)
-                        .playerName("New Player")
-                        .wins(0)
-                        .gamesPlayed(0)
-                        .averageScore(0.0)
-                        .totalScore(0)
-                        .currentRank(0)
-                        .longestWinStreak(0)
-                        .build();
-            }
-
-            // Get game statistics
-            Integer gamesPlayed = gameScoreRepository.countGamesByUserId(userId);
-            if (gamesPlayed == null) gamesPlayed = 0;
-            
-            Integer wins = gameScoreRepository.countWinsByUserId(userId);
-            if (wins == null) wins = 0;
-            
-            Long totalScore = gameScoreRepository.getTotalScoreByUserId(userId);
-            if (totalScore == null) totalScore = 0L;
-            
-            Double averageScore = gamesPlayed > 0 ? totalScore.doubleValue() / gamesPlayed : 0.0;
-            
-            Integer currentRank = 0;
-            try {
-                currentRank = gameScoreRepository.getUserRank(userId);
-                if (currentRank == null) currentRank = 0;
-            } catch (Exception e) {
-                log.warn("Failed to fetch user rank: {}", e.getMessage());
-                currentRank = 0;
-            }
-            
-            Integer longestWinStreak = gameScoreRepository.getLongestWinStreakByUserId(userId);
-            if (longestWinStreak == null) longestWinStreak = 0;
-
-            // Get last played date
-            GameScore lastGame = gameScoreRepository.findTopByChatIdOrderByGamePlayedAtDesc(userId);
-            String lastPlayedDate = lastGame != null && lastGame.getGamePlayedAt() != null ? lastGame.getGamePlayedAt().toString() : null;
-
-            return SOSGameDTO.ProgressResponse.builder()
-                    .userId(userId)
-                    .playerName(playerProfile.getPlayerName())
-                    .wins(wins)
-                    .gamesPlayed(gamesPlayed)
-                    .averageScore(Math.round(averageScore * 100.0) / 100.0)
-                    .totalScore(totalScore.intValue())
-                    .currentRank(currentRank)
-                    .lastPlayedDate(lastPlayedDate)
-                    .longestWinStreak(longestWinStreak)
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Error fetching player progress: {}", e.getMessage());
-            return SOSGameDTO.ProgressResponse.builder()
-                    .userId(userId)
-                    .playerName("Unknown")
-                    .wins(0)
-                    .gamesPlayed(0)
-                    .averageScore(0.0)
-                    .totalScore(0)
-                    .build();
-        }
-    }
-
-    /**
-     * Get top players leaderboard
-     */
-    public List<SOSGameDTO.LeaderboardEntry> getLeaderboard(int limit) {
-        try {
-            log.info("Fetching leaderboard with limit: {}", limit);
-
-            // Get all unique players and their stats, sorted by total score descending
-            List<SOSGameDTO.LeaderboardEntry> leaderboard = gameScoreRepository.findTop(limit)
-                    .stream()
-                    .map(this::mapToLeaderboardEntry)
-                    .collect(Collectors.toList());
-
-            // Add ranks
-            for (int i = 0; i < leaderboard.size(); i++) {
-                leaderboard.get(i).setRank(i + 1);
-            }
-
-            log.info("Leaderboard fetched successfully. Size: {}", leaderboard.size());
-            return leaderboard;
-
-        } catch (Exception e) {
-            log.error("Error fetching leaderboard: {}", e.getMessage());
-            return Collections.emptyList();
-        }
-    }
-
-    /**
-     * Map game score to leaderboard entry
-     */
-    private SOSGameDTO.LeaderboardEntry mapToLeaderboardEntry(Object[] result) {
-        String playerName = (String) result[0];
-        Long chatId = (Long) result[1];
-        
-        // Handle BigDecimal or Number types from Oracle aggregations
-        Long totalScore = 0L;
-        if (result[2] != null) {
-            Object scoreObj = result[2];
-            if (scoreObj instanceof java.math.BigDecimal) {
-                totalScore = ((java.math.BigDecimal) scoreObj).longValue();
-            } else if (scoreObj instanceof Long) {
-                totalScore = (Long) scoreObj;
-            } else if (scoreObj instanceof Number) {
-                totalScore = ((Number) scoreObj).longValue();
-            }
-        }
-        
-        Long wins = 0L;
-        if (result[3] != null) {
-            Object winsObj = result[3];
-            if (winsObj instanceof java.math.BigDecimal) {
-                wins = ((java.math.BigDecimal) winsObj).longValue();
-            } else if (winsObj instanceof Long) {
-                wins = (Long) winsObj;
-            } else if (winsObj instanceof Number) {
-                wins = ((Number) winsObj).longValue();
-            }
-        }
-        
-        Long gamesPlayed = 0L;
-        if (result[4] != null) {
-            Object gamesObj = result[4];
-            if (gamesObj instanceof java.math.BigDecimal) {
-                gamesPlayed = ((java.math.BigDecimal) gamesObj).longValue();
-            } else if (gamesObj instanceof Long) {
-                gamesPlayed = (Long) gamesObj;
-            } else if (gamesObj instanceof Number) {
-                gamesPlayed = ((Number) gamesObj).longValue();
-            }
-        }
-        
-        LocalDateTime lastPlayedDate = (LocalDateTime) result[5];
-
-        Double winRate = gamesPlayed > 0 ? (wins.doubleValue() / gamesPlayed.doubleValue()) * 100 : 0.0;
-        Double averageScore = gamesPlayed > 0 ? totalScore.doubleValue() / gamesPlayed.doubleValue() : 0.0;
-
-        return SOSGameDTO.LeaderboardEntry.builder()
-                .playerName(playerName)
-                .score(totalScore.intValue())
-                .wins(wins.intValue())
-                .gamesPlayed(gamesPlayed.intValue())
-                .winRate(Math.round(winRate * 100.0) / 100.0)
-                .averageScore(Math.round(averageScore * 100.0) / 100.0)
-                .lastPlayedDate(lastPlayedDate != null ? lastPlayedDate.toString() : null)
-                .build();
-    }
-
-    /**
-     * Get player's inventory
-     */
-    public SOSGameDTO.InventoryResponse getPlayerInventory(Long userId) {
-        try {
-            log.info("Fetching inventory for user: {}", userId);
-
-            PlayerProfile playerProfile = playerProfileRepository.findByChatId(userId)
-                    .orElse(null);
-
-            // For now, return empty inventory
-            // This can be extended to store actual inventory items in a separate table
-            return SOSGameDTO.InventoryResponse.builder()
-                    .userId(userId)
-                    .playerName(playerProfile != null ? playerProfile.getPlayerName() : "Unknown")
-                    .items(new ArrayList<>())
-                    .totalCoins(0)
-                    .totalGems(0)
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Error fetching inventory: {}", e.getMessage());
-            return SOSGameDTO.InventoryResponse.builder()
-                    .userId(userId)
-                    .items(new ArrayList<>())
-                    .build();
-        }
-    }
-
-    /**
-     * Update player's inventory
-     */
-    public SOSGameDTO.InventoryResponse updatePlayerInventory(Long userId, SOSGameDTO.UpdateInventoryRequest inventoryData) {
-        try {
-            log.info("Updating inventory for user: {}", userId);
-
-            PlayerProfile playerProfile = playerProfileRepository.findByChatId(userId)
-                    .orElse(null);
-
-            // For now, just return the updated inventory
-            // This can be extended to actually persist inventory items
-            return SOSGameDTO.InventoryResponse.builder()
-                    .userId(userId)
-                    .playerName(playerProfile != null ? playerProfile.getPlayerName() : "Unknown")
-                    .items(inventoryData.getItems())
-                    .totalCoins(0)
-                    .totalGems(0)
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Error updating inventory: {}", e.getMessage());
-            return SOSGameDTO.InventoryResponse.builder()
-                    .userId(userId)
-                    .items(new ArrayList<>())
-                    .build();
-        }
-    }
 }
