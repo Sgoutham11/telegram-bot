@@ -32,19 +32,29 @@ public class SOSGameService {
 
 
     private Long extractUserIdFromAuth(String authHeader) throws Exception {
-
-        // Local development: generate a temporary user id
-        if ("local".equalsIgnoreCase(activeProfile)) {
-            return Math.abs(java.util.UUID.randomUUID().getMostSignificantBits());
-        }
-
         log.info("Extract user ID -------------:=>");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new Exception("Invalid Authorization header");
         }
-        String initData = authHeader.substring(7);
-        return initDataValidator.validateAndExtractUserId(initData)
+        String token = authHeader.substring(7);
+        if (token.startsWith("web:")) {
+            return extractWebUserId(token.substring(4));
+        }
+
+        // Local development: keep Telegram auth optional for direct local testing.
+        if ("local".equalsIgnoreCase(activeProfile) && token.isBlank()) {
+            return Math.abs(java.util.UUID.randomUUID().getMostSignificantBits());
+        }
+
+        return initDataValidator.validateAndExtractUserId(token)
                 .orElseThrow(() -> new Exception("Invalid Telegram initData"));
+    }
+
+    private Long extractWebUserId(String webChatId) throws Exception {
+        if (webChatId == null || !webChatId.matches("^777\\d{8,}$")) {
+            throw new Exception("Invalid web chat ID");
+        }
+        return Long.parseLong(webChatId);
     }
 
     /**
