@@ -1,21 +1,28 @@
-version: '3.9'
-
 services:
   telegram-bot-buddy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
     image: telegram-bot-buddy:latest
+
     container_name: telegram-bot-buddy
+
     restart: unless-stopped
+
     ports:
       - "7072:7072"
+
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DATABASE_DRIVER: oracle.jdbc.OracleDriver
       WALLET_PATH: /wallet
 
+    env_file:
+      - .env
+
     volumes:
       - /home/ubuntu/wallet:/wallet:ro
-    env_file:
-      - /home/ubuntu/.env
 
     networks:
       - stock-network
