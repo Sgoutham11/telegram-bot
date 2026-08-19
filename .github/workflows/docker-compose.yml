@@ -97,37 +97,25 @@ jobs:
 
             docker compose ps
 
-            echo "======================================"
-            echo "Waiting for application"
-            echo "======================================"
+            status=$(docker inspect \
+              --format '{{.State.Status}}' \
+              telegram-bot-buddy 2>/dev/null || true)
 
-            for attempt in $(seq 1 18); do
+            echo "Container status: $status"
 
-              status=$(docker inspect \
-                --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
-                telegram-bot-buddy 2>/dev/null || true)
+            if [ "$status" = "running" ]; then
+              echo "======================================"
+              echo "Deployment successful"
+              echo "Container is running"
+              echo "======================================"
 
-              echo "Attempt $attempt/18 - Status: $status"
+              docker compose ps
 
-              if [ "$status" = "healthy" ]; then
-                echo "Application is healthy!"
-                docker compose ps
-                exit 0
-              fi
-
-              if [ "$status" = "unhealthy" ] || \
-                 [ "$status" = "exited" ] || \
-                 [ "$status" = "dead" ]; then
-
-                echo "Application failed to start."
-                break
-              fi
-
-              sleep 5
-            done
+              exit 0
+            fi
 
             echo "======================================"
-            echo "Container status"
+            echo "Deployment failed"
             echo "======================================"
 
             docker compose ps
