@@ -1,0 +1,141 @@
+name: Deploy Telegram Bot Buddy
+
+on:
+  push:
+    branches: [main]
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-telegram-bot-buddy
+  cancel-in-progress: false
+
+jobs:
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Build application
+        run: mvn clean package -DskipTests
+
+      - name: Build production Docker image
+        run: |
+          docker build --pull \
+            --tag telegram-bot-buddy:latest .
+
+      - name: Save Docker image
+        run: |
+          docker save telegram-bot-buddy:latest \
+            -o telegram-bot-buddy.tar
+
+          chmod 644 telegram-bot-buddy.tar
+
+          ls -lh telegram-bot-buddy.tar
+
+      - name: Copy image and Compose file to OCI
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USERNAME }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          source: "telegram-bot-buddy.tar,docker-compose.yml"
+          target: "/home/ubuntu/telegram-bot"
+          overwrite: true
+
+      - name: Deploy on OCI
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USERNAME }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            set -eu
+
+            cd /home/ubuntu/telegram-bot
+
+            echo "======================================"
+            echo "Loading Docker image"
+            echo "======================================"
+
+            docker load -i telegram-bot-buddy.tar
+
+            echo "======================================"
+            echo "Starting application"
+            echo "======================================"
+
+            docker compose up -d \
+              --force-recreate \
+              --remove-orphans
+
+            echo "======================================"
+            echo "Cleaning temporary files"
+            echo "======================================"
+
+            rm -f telegram-bot-buddy.tar
+
+            docker image prune -f
+
+            echo "======================================"
+            echo "Container status"
+            echo "======================================"
+
+            docker compose ps
+
+            echo "======================================"
+            echo "Waiting for application"
+            echo "======================================"
+
+            for attempt in $(seq 1 18); do
+
+              status=$(docker inspect \
+                --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
+                telegram-bot-buddy 2>/dev/null || true)
+
+              echo "Attempt $attempt/18 - Status: $status"
+
+              if [ "$status" = "healthy" ]; then
+                echo "Application is healthy!"
+                docker compose ps
+                exit 0
+              fi
+
+              if [ "$status" = "unhealthy" ] || \
+                 [ "$status" = "exited" ] || \
+                 [ "$status" = "dead" ]; then
+
+                echo "Application failed to start."
+                break
+              fi
+
+              sleep 5
+            done
+
+            echo "======================================"
+            echo "Container status"
+            echo "======================================"
+
+            docker compose ps
+
+            echo "======================================"
+            echo "Application logs"
+            echo "======================================"
+
+            docker compose logs --tail=100 telegram-bot-buddy
+
+            exit 1
