@@ -1,58 +1,58 @@
-name: Deploy to OCI
+# name: Deploy to OCI
 
-on:
-  push:
-    branches:
-      - main
+# on:
+#   push:
+#     branches:
+#       - main
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+# jobs:
+#   build-and-deploy:
+#     runs-on: ubuntu-latest
 
-    steps:
-      # Step 1: Download your code
-      - name: Checkout code
-        uses: actions/checkout@v4
+#     steps:
+#       # Step 1: Download your code
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      # Step 2: Install Java 21
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
+#       # Step 2: Install Java 21
+#       - name: Setup Java 21
+#         uses: actions/setup-java@v4
+#         with:
+#           java-version: '21'
+#           distribution: 'temurin'
 
-      # Step 3: Build the JAR
-      - name: Build JAR
-        run: mvn clean package -DskipTests
+#       # Step 3: Build the JAR
+#       - name: Build JAR
+#         run: mvn clean package -DskipTests
 
-      # Step 4: Copy JAR to OCI server
-      - name: Copy JAR to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USERNAME }}
-          key: ${{ secrets.OCI_SSH_KEY }}
-          source: "target/*.jar"
-          target: "/home/ubuntu/deploy/"
-          strip_components: 1
+#       # Step 4: Copy JAR to OCI server
+#       - name: Copy JAR to server
+#         uses: appleboy/scp-action@v0.1.7
+#         with:
+#           host: ${{ secrets.OCI_HOST }}
+#           username: ${{ secrets.OCI_USERNAME }}
+#           key: ${{ secrets.OCI_SSH_KEY }}
+#           source: "target/*.jar"
+#           target: "/home/ubuntu/deploy/"
+#           strip_components: 1
 
-      # Step 5: Restart the app
-      - name: Restart application
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USERNAME }}
-          key: ${{ secrets.OCI_SSH_KEY }}
-          script: |
-            # Copy new JAR (rename to app.jar)
-            cp /home/ubuntu/deploy/*.jar /home/ubuntu/app.jar
+#       # Step 5: Restart the app
+#       - name: Restart application
+#         uses: appleboy/ssh-action@v1
+#         with:
+#           host: ${{ secrets.OCI_HOST }}
+#           username: ${{ secrets.OCI_USERNAME }}
+#           key: ${{ secrets.OCI_SSH_KEY }}
+#           script: |
+#             # Copy new JAR (rename to app.jar)
+#             cp /home/ubuntu/deploy/*.jar /home/ubuntu/app.jar
 
-            # Cleanup deploy folder
-            rm -rf /home/ubuntu/deploy
+#             # Cleanup deploy folder
+#             rm -rf /home/ubuntu/deploy
 
-            # Restart the service
-            sudo systemctl restart stockmarket
+#             # Restart the service
+#             sudo systemctl restart stockmarket
 
-            # Wait 10 seconds and check status
-            sleep 10
-            sudo systemctl status stockmarket
+#             # Wait 10 seconds and check status
+#             sleep 10
+#             sudo systemctl status stockmarket
