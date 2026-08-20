@@ -22,7 +22,7 @@ services:
       WALLET_PATH: /wallet
 
       # Limit Java heap
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
 
     volumes:
       - /home/ubuntu/wallet:/wallet:ro
