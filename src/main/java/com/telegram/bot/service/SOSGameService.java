@@ -32,7 +32,7 @@ public class SOSGameService {
 
 
     private Long extractUserIdFromAuth(String authHeader) throws Exception {
-        log.info("Extract user ID -------------:=>");
+        log.info("Extract user ID-------------:=>");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new Exception("Invalid Authorization header");
         }
@@ -67,15 +67,7 @@ public class SOSGameService {
 
             Long userId = extractUserIdFromAuth(authHeader);
             log.info("Saving game score for user: {}", userId);
-            PlayerProfile playerProfile = playerProfileRepository.findByChatId(userId)
-                    .orElseGet(() -> {
-                        PlayerProfile newProfile = PlayerProfile.builder()
-                                .chatId(userId)
-                                .playerName(scoreData.getPlayerName() != null ? scoreData.getPlayerName() : "Player_" + userId)
-                                .createdAt(LocalDateTime.now())
-                                .build();
-                        return playerProfileRepository.save(newProfile);
-                    });
+            PlayerProfile playerProfile = getOrCreatePlayerProfile(userId, scoreData.getPlayerName());
             String gameCode = scoreData.getGameCode() != null && !scoreData.getGameCode().isBlank()
                     ? scoreData.getGameCode().toUpperCase()
                     : "SOS";
@@ -88,8 +80,6 @@ public class SOSGameService {
                     .opponentScore(scoreData.getOpponentScore())
                     .boardSize(scoreData.getBoardSize() != null ? scoreData.getBoardSize() : 5)
                     .isWin(scoreData.getIsWin() != null ? scoreData.getIsWin() : (scoreData.getScore() > scoreData.getOpponentScore()))
-                    .gamePlayedAt(LocalDateTime.now())
-                    .createdAt(LocalDateTime.now())
                     .build();
 
             GameScore savedScore = gameScoreRepository.save(gameScore);
@@ -116,5 +106,13 @@ public class SOSGameService {
         }
     }
 
+    private PlayerProfile getOrCreatePlayerProfile(Long userId, String playerName) {
+        String safePlayerName = playerName != null && !playerName.isBlank()
+                ? playerName
+                : "Player_" + userId;
+        playerProfileRepository.insertIfMissing(userId, safePlayerName);
+        return playerProfileRepository.findByChatId(userId)
+                .orElseThrow(() -> new IllegalStateException("Player profile was not created for chatId: " + userId));
+    }
 
 }
