@@ -21,6 +21,7 @@ telegram:
     name: telegram-bot-buddy
   jpa:
      show-sql: false
+     open-in-view: false
 server:
   servlet:
     context-path: /telegram-bot-buddy
